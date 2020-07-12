@@ -53,6 +53,7 @@ template<class T> ostream& operator <<(ostream &os, queue<T> Q){
 #define F first
 #define S second
 #define pb push_back
+#define mp make_pair
 
 
 typedef long long ll;
@@ -65,34 +66,42 @@ typedef stack<int> intstack;
 typedef queue<int> intqueue;
 typedef map<int, int> intmap;
 
+#define all(A)          A.begin(), A.end()
+#define rep(i, n)       int i=-1; while(++i < n)
+#define loop(i, n)      for(int i=0; i<n; i++)
+#define Loop(i, k, n)   for(int i=k; k<n?i<n:i>n; k<n?i++:i--)
+#define iterate(it, A)  for(auto it=A.begin(); it!=A.end(); it++)
 
-#define repeat(i, n) int i=-1; while(++i < n)
-#define loop(i, n) for(int i=0; i<n; i++)
-#define loop1(i, n) for(int i=1; i<=n; i++)
-#define loopback(i, n) for(int i=n-1; i>=0; i--)
 
 /*/-----------------------------Modular Arithmetic------------------------------/*/
 
 const int mod = 1e9+7;
+inline int modulo(int x){
+    x = x%mod;
+    return x<0? x+mod:x;
+}
 
 inline int add(int x, int y){
     x += y;
-    return (x<mod)? x:x-mod;
+    return modulo(x);
 }
 
 inline int sub(int x, int y){
-    x-=y;
-    return (x>=0)? x:x+mod;
+    x -= y;
+    return modulo(x);
 }
 
 inline int mul(int x, int y){
-    return (x*1ll*y)%mod;    
+    x = x*1ll*y;    
+    return modulo(x);
 }
 
 inline int power(int x, int y){
     if(y==0)    return 1;
     int temp = power(x, y/2);
-    return (y%2==0)? temp*temp : temp*temp*x;
+    temp = mul(temp, temp);
+    if(y%2==1)  temp = mul(temp, x);
+    return temp;       
 }
 
 inline int inv(int x){
@@ -102,9 +111,16 @@ inline int inv(int x){
 
 /*/---------------------------------Code Here-----------------------------------/*/
 
+void solve(){
+    
+}
 
 int32_t main(){
-    
+    int T=1; cin>>T;
+    Loop(t, 1, T+1){
+        cout << "Case #" << t << ": ";
+        solve();
+    }
     return 0;
 }
 
