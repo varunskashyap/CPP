@@ -66,10 +66,10 @@ typedef queue<int> intqueue;
 typedef map<int, int> intmap;
 
 
-#define Loop(i, n) int i=-1; while(++i < n)
-#define For(i, n) for(int i=0; i<n; i++)
-#define Rep(i, n) for(int i=1; i<=n; i++)
-#define BackFor(i, n) for(int i=n-1; i>=0; i--)
+#define repeat(i, n) int i=-1; while(++i < n)
+#define loop(i, n) for(int i=0; i<n; i++)
+#define loop1(i, n) for(int i=1; i<=n; i++)
+#define loopback(i, n) for(int i=n-1; i>=0; i--)
 
 /*/-----------------------------Modular Arithmetic------------------------------/*/
 
