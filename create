@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+
+DIR=$(dirname $0)
+
+search_up ()
+(
+    while [[ $PWD != "/" ]]; do
+        if [[ -e "$1" ]]; then
+            pwd
+            if [[ ! -e "$1/$2" ]]; then
+                break
+            fi
+        fi
+        cd ..
+    done
+)
+TEMPLATE_DIR='.template'
+# PARENT_FILE : To not look up from current .template dir -> need to add $PARENT file to that .template dir
+PARENT_FILE='$PARENT'
+
+IFS=$'\n'
+TEMPLATE_DIRS=($(search_up "$TEMPLATE_DIR" "$PARENT_FILE"))
+unset IFS
+
+# Change every element of array : http://web.archive.org/web/20101114051536/http://codesnippets.joyent.com/posts/show/1826  
+TEMPLATE_DIRS=(${TEMPLATE_DIRS[@]/%/\/"$TEMPLATE_DIR"})
+
+if hash rename.ul 2>/dev/null; then
+    RENAME=rename.ul
+else
+    RENAME=rename
+fi
+
+for filepath in "$@"; do
+    PROBLEM_NAME=$(basename "$filepath")
+
+    #If need to make diff dir for each problem and if it already exists
+    #if [[ -e "$filepath" ]]; then
+        #echo "$filepath already exists. Remove it and retry."
+        #continue
+    #fi
+
+    #IFS=$'\n'
+    #files=($(find $PWD -name "${PROBLEM_NAME}*" -print0 | xargs -0 -I{} echo {}))
+    #unset IFS
+    #echo ${#files[@]}
+    #if [[ ${#files[@]} -gt 0 ]]; then
+        #echo "${PROBLEM_NAME} already exists. Remove it and retry."
+        #continue
+    #fi
+
+    # Copy files in
+    #mkdir -p "$filepath"
+    for CURRENT_TEMPLATE_DIR in "${TEMPLATE_DIRS[@]}"; do
+        #cp -r -T --no-clobber "$CURRENT_TEMPLATE_DIR" "$filepath/"     #changed from new directory to current directory
+        cp -r -T --no-clobber "$CURRENT_TEMPLATE_DIR" "$PWD/"
+    done
+    rm -f "$PWD/$PARENT_FILE"
+
+    # Rename PROBLEM_NAME in file names
+    find $PWD -type f -print0 | xargs -0 ${RENAME} "\$PROBLEM_NAME" "$PROBLEM_NAME"
+
+    # Envsubst PROBLEM_NAME in files
+    export PROBLEM_NAME
+    REPLACE_STRING='${PROBLEM_NAME}'
+    find $PWD -type f -print0 | xargs -0 -I{} bash -c\
+	'TEMP=$(mktemp) && cat "$1" > "$TEMP" && envsubst '"'$REPLACE_STRING'"' < "$TEMP" > "$1" && rm "$TEMP"'\
+	-- {}
+
+    #If need to make set up for each problem (* dir exists for each problem)
+    #pushd $filepath > /dev/null
+    #if [[ -e "setup" ]]; then
+        #echo "Running setup"
+        #./setup
+    #fi
+    #popd > /dev/null
+done
+
+#Notes : Changed $filepath  ->  $PWD 
