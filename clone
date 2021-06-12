@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+
+import click
+import sys
+import http.server
+import json
+from pathlib import Path
+import subprocess
+
+
+def listen(*, timeout=None):
+  data = None
+
+  class CompetitiveCompanionHandler(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+      nonlocal data
+      data = json.load(self.rfile)
+
+  with http.server.HTTPServer(('127.0.0.1', 10046), CompetitiveCompanionHandler) as server:
+    server.timeout = timeout
+    server.handle_request()
+    if data is not None:
+      print(f"Got data \n{json.dumps(data)}")
+    else:
+      print("Got no data")
+  
+  return data
+
+def saveSamples(data, name):
+  for i, t in enumerate(data['tests'], start=1):
+    with open(f'{name}{i}.in', 'w') as f:
+        f.write(t['input'])
+    with open(f'{name}{i}.ans', 'w') as f:
+        f.write(t['output'])
+
+def create(data):
+  if data is None:
+    print("Empty json")
+    return
+
+  if 'name' in data:
+    name = "".join(data['name'].split())
+  else:
+    print(f"For Data: {json.dumps(data)}")
+    name = input("What name to give? ")
+
+  CREATE = Path(sys.path[0]) / 'create'
+  try:
+    subprocess.check_call([CREATE, name], stdout=sys.stdout, stderr=sys.stderr)
+  except subprocess.CalledProcessError as err:
+    print(f"Got error: {err}")
+    return
+
+  print(f"Saving Samples for {name}...\n")
+  saveSamples(data, name)
+
+
+@click.group()
+def main():
+  pass
+
+@main.command()
+def contest():
+  click.echo("Parsing contest\n")
+  cur = 0; need = 1
+  while cur < need:
+    data = listen()
+    if 'batch' not in data or 'size' not in data['batch']:
+      print("Batch or Batch Size is not present")
+      return
+    cur += 1; need = data['batch']['size']
+    create(data)
+
+
+@main.command()
+@click.option('--count', '-n', default=1, type=int, help='No. of problems to download')
+def problem(count):
+  click.echo(f"Parsing Problems\n")
+  for _ in range(count):
+    data = listen()
+    create(data)
+
+
+if __name__ == '__main__':
+  main()

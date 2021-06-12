@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+#Colors
+RED='\033[1;31m'
+GREEN='\033[0;32m'
+BLUE='\033[1;34m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+file="${1}"
+file=$(basename "${file}")
+file=${file/%.cpp}
+
+g++ -o "${file}" "${file}.cpp"
+if [[ $? -ne 0 ]]; then
+  echo -e "${RED}Compilation Error${NC}"
+  exit 1
+fi
+
+inputs=($(find $PWD -maxdepth 1 -regex ".*$file[0-9]+\.in" -print0 | xargs -0 -I{} echo {}))
+
+wrong=0
+for input in "${inputs[@]}"; do
+
+  input=$(basename "${input}")
+  answer="${input/%in/ans}"; output="${input/%in/out}"
+  ./${file} < "${input}" > "${output}"
+
+  diff -w "${answer}" "${output}" > /dev/null
+  if [[ $? -ne 0 ]]; then
+    wrong=1
+    echo -e "\n${RED}Failed for ${input}${NC}"
+    echo "INPUT"
+    cat "${input}"
+    echo "OUTPUT AND ANSWER"
+    pr -m -t "${output}" "${answer}"
+    echo ""
+  else
+    echo -e "${YELLOW}Passed for ${input}${NC}"
+  fi
+done
+
+if [[ $wrong -eq 0 ]]; then
+  echo -e "${GREEN}ALL TEST CASES PASSED${NC}"
+fi
