@@ -1,79 +1,92 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 
-DIR=$(dirname $0)
+import click
+import sys
+import http.server
+import json
+from pathlib import Path
+import subprocess
 
-search_up ()
-(
-    while [[ $PWD != "/" ]]; do
-        if [[ -e "$1" ]]; then
-            pwd
-            if [[ ! -e "$1/$2" ]]; then
-                break
-            fi
-        fi
-        cd ..
-    done
-)
-TEMPLATE_DIR='.template'
-# PARENT_FILE : To not look up from current .template dir -> need to add $PARENT file to that .template dir
-PARENT_FILE='$PARENT'
 
-IFS=$'\n'
-TEMPLATE_DIRS=($(search_up "$TEMPLATE_DIR" "$PARENT_FILE"))
-unset IFS
+def listen(*, timeout=None):
+  data = None
 
-# Change every element of array : http://web.archive.org/web/20101114051536/http://codesnippets.joyent.com/posts/show/1826  
-TEMPLATE_DIRS=(${TEMPLATE_DIRS[@]/%/\/"$TEMPLATE_DIR"})
+  class CompetitiveCompanionHandler(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+      nonlocal data
+      data = json.load(self.rfile)
 
-if hash rename.ul 2>/dev/null; then
-    RENAME=rename.ul
-else
-    RENAME=rename
-fi
+  with http.server.HTTPServer(('127.0.0.1', 10046), CompetitiveCompanionHandler) as server:
+    server.timeout = timeout
+    server.handle_request()
+    if data is not None:
+      print(f"Got data \n{json.dumps(data)}")
+    else:
+      print("Got no data")
+  
+  return data
 
-for filepath in "$@"; do
-    PROBLEM_NAME=$(basename "$filepath")
+def saveSamples(data, name):
+  for i, t in enumerate(data['tests'], start=1):
+    with open(f'{name}{i}.in', 'w') as f:
+        f.write(t['input'])
+    with open(f'{name}{i}.ans', 'w') as f:
+        f.write(t['output'])
 
-    #If need to make diff dir for each problem and if it already exists
-    #if [[ -e "$filepath" ]]; then
-        #echo "$filepath already exists. Remove it and retry."
-        #continue
-    #fi
+def create(data):
+  if data is None:
+    print("Empty json")
+    return
 
-    #IFS=$'\n'
-    #files=($(find $PWD -name "${PROBLEM_NAME}*" -print0 | xargs -0 -I{} echo {}))
-    #unset IFS
-    #echo ${#files[@]}
-    #if [[ ${#files[@]} -gt 0 ]]; then
-        #echo "${PROBLEM_NAME} already exists. Remove it and retry."
-        #continue
-    #fi
+  if 'name' in data:
+    name = "".join(data['name'].split())
+  else:
+    print(f"For Data: {json.dumps(data)}")
+    name = input("What name to give? ")
 
-    # Copy files in
-    #mkdir -p "$filepath"
-    for CURRENT_TEMPLATE_DIR in "${TEMPLATE_DIRS[@]}"; do
-        #cp -r -T --no-clobber "$CURRENT_TEMPLATE_DIR" "$filepath/"     #changed from new directory to current directory
-        cp -r -T --no-clobber "$CURRENT_TEMPLATE_DIR" "$PWD/"
-    done
-    rm -f "$PWD/$PARENT_FILE"
+  CREATE = Path(sys.path[0]) / 'create'
+  try:
+    subprocess.check_call([CREATE, name], stdout=sys.stdout, stderr=sys.stderr)
+  except subprocess.CalledProcessError as err:
+    print(f"Got error: {err}")
+    return
 
-    # Rename PROBLEM_NAME in file names
-    find $PWD -type f -print0 | xargs -0 ${RENAME} "\$PROBLEM_NAME" "$PROBLEM_NAME"
+  print(f"Saving Samples for {name}...\n")
+  saveSamples(data, name)
 
-    # Envsubst PROBLEM_NAME in files
-    export PROBLEM_NAME
-    REPLACE_STRING='${PROBLEM_NAME}'
-    find $PWD -type f -print0 | xargs -0 -I{} bash -c\
-	'TEMP=$(mktemp) && cat "$1" > "$TEMP" && envsubst '"'$REPLACE_STRING'"' < "$TEMP" > "$1" && rm "$TEMP"'\
-	-- {}
 
-    #If need to make set up for each problem (* dir exists for each problem)
-    #pushd $filepath > /dev/null
-    #if [[ -e "setup" ]]; then
-        #echo "Running setup"
-        #./setup
-    #fi
-    #popd > /dev/null
-done
+@click.group()
+def main():
+  pass
 
-#Notes : Changed $filepath  ->  $PWD 
+@main.command()
+def contest():
+  click.echo("Parsing contest\n")
+  dataList = []
+  cur = 0; need = 1
+  while cur < need:
+    data = listen()
+    if 'batch' not in data or 'size' not in data['batch']:
+      print("Batch or Batch Size is not present")
+      return
+    cur += 1; need = data['batch']['size']
+    dataList.append(data)
+
+  for data in dataList:
+    create(data)
+
+
+@main.command()
+@click.option('--count', '-n', default=1, type=int, help='No. of problems to download')
+def problem(count):
+  click.echo(f"Parsing Problems\n")
+  dataList = []
+  for _ in range(count):
+    data = listen()
+    dataList.append(data)
+  for data in dataList:
+    create(data)
+
+
+if __name__ == '__main__':
+  main()
